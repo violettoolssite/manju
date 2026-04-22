@@ -1,4 +1,4 @@
-import { Scene, StyleOption, CharacterAsset, EnvironmentAsset, AppSettings } from '../store/useStore';
+import { AppSettings, Scene, CharacterAsset, EnvironmentAsset, StyleOption } from '../store/useStore';
 
 export const MOCK_STYLES: StyleOption[] = [
   // 1. 写实/摄影风格
@@ -433,7 +433,7 @@ ${text}
 // ==============
 export const regeneratePromptForScene = async (
   scene: Scene,
-  style: StyleType,
+  style: StyleOption,
   settings: AppSettings,
   projectSettings: { aspectRatio: string; frameLayout: string }
 ): Promise<string> => {

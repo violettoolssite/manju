@@ -665,19 +665,19 @@ export const SceneCard: React.FC<{ scene: Scene; index: number }> = ({ scene, in
               )}
 
               {(scene.status === 'completed' || scene.status === 'video_generating') && (
-                <button
-                  onClick={handleConfirmAndGenerateVideo}
-                  disabled={scene.status === 'image_generating' || scene.status === 'video_generating'}
-                  className={`flex-1 text-xs font-bold py-2 rounded-xl transition-all border flex items-center justify-center gap-1 ${
-                    scene.status === 'image_generating' || scene.status === 'video_generating'
-                      ? 'bg-zinc-800/50 text-zinc-500 border-zinc-800 cursor-not-allowed'
-                      : 'bg-zinc-800 hover:bg-purple-500/20 text-purple-400 border-zinc-700 hover:border-purple-500/50'
-                  }`}
-                >
-                  <RefreshCcw size={12} className={scene.status === 'video_generating' ? 'animate-spin' : ''} /> 
-                  {scene.status === 'video_generating' ? '生成视频中...' : '重新生成视频'}
-                </button>
-              )}
+                  <button
+                    onClick={handleConfirmAndGenerateVideo}
+                    disabled={scene.status === 'video_generating'}
+                    className={`flex-1 text-xs font-bold py-2 rounded-xl transition-all border flex items-center justify-center gap-1 ${
+                      scene.status === 'video_generating'
+                        ? 'bg-zinc-800/50 text-zinc-500 border-zinc-800 cursor-not-allowed'
+                        : 'bg-zinc-800 hover:bg-purple-500/20 text-purple-400 border-zinc-700 hover:border-purple-500/50'
+                    }`}
+                  >
+                    <RefreshCcw size={12} className={scene.status === 'video_generating' ? 'animate-spin' : ''} />
+                    {scene.status === 'video_generating' ? '生成视频中...' : '重新生成视频'}
+                  </button>
+                )}
             </div>
         </div>
       </div>
