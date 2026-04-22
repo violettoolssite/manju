@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { motion, AnimatePresence, useDragControls } from 'framer-motion';
+import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { X, CheckCircle2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useStore, StyleOption } from '../store/useStore';
 import { MOCK_STYLES } from '../utils/apiService';
@@ -7,8 +7,6 @@ import { MOCK_STYLES } from '../utils/apiService';
 export const StyleSelector: React.FC = () => {
   const { isStyleSelectorOpen, setIsStyleSelectorOpen, selectedStyle, setSelectedStyle } = useStore();
   const [currentPage, setCurrentPage] = useState(1);
-  const dragConstraintsRef = useRef<HTMLDivElement>(null);
-  const dragControls = useDragControls();
   const ITEMS_PER_PAGE = 4;
 
   useEffect(() => {
@@ -41,23 +39,13 @@ export const StyleSelector: React.FC = () => {
             onClick={() => setIsStyleSelectorOpen(false)}
             className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm"
           />
-          <div ref={dragConstraintsRef} className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <motion.div
-              drag
-              dragListener={false}
-              dragControls={dragControls}
-              dragConstraints={dragConstraintsRef}
-              dragMomentum={false}
-              dragElastic={0.08}
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="w-full max-w-4xl bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl p-6 overflow-hidden flex flex-col max-h-[80vh]"
-            >
-            <div
-              className="flex items-center justify-between mb-6 shrink-0 cursor-move select-none"
-              onPointerDown={(event) => dragControls.start(event)}
-            >
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+            className="fixed z-50 left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-4xl bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl p-6 overflow-hidden flex flex-col max-h-[80vh]"
+          >
+            <div className="flex items-center justify-between mb-6 shrink-0">
               <div>
                 <h2 className="text-2xl font-bold text-white mb-1">选择视觉风格</h2>
                 <p className="text-zinc-400 text-sm">为您的故事奠定全局视觉基调，后续场景将以此为基础生成。</p>
@@ -127,8 +115,7 @@ export const StyleSelector: React.FC = () => {
                 下一页 <ChevronRight size={18} />
               </button>
             </div>
-            </motion.div>
-          </div>
+          </motion.div>
         </>
       )}
     </AnimatePresence>
