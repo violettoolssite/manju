@@ -1,8 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Play, Download, Pause, Maximize2, Camera, Link as LinkIcon, RefreshCcw, User, MapPin, FolderKanban, Trash2, AlertTriangle, Edit2, CheckCircle2, MessageSquare } from 'lucide-react';
+import { Play, Download, Pause, Maximize2, Camera, Link as LinkIcon, RefreshCcw, User, MapPin, FolderKanban, Trash2, AlertTriangle, Edit2, CheckCircle2, MessageSquare, Wand2 } from 'lucide-react';
 import { useStore, Scene, CharacterAsset, EnvironmentAsset } from '../store/useStore';
-import { generateImageForScene, generateVideoForScene, generateThreeViewImage, ApiError } from '../utils/apiService';
+import { generateImageForScene, generateVideoForScene, generateThreeViewImage, ApiError, regeneratePromptForScene } from '../utils/apiService';
 
 const WorkflowToolbar: React.FC = () => {
   const { 
@@ -435,18 +435,46 @@ export const SceneCard: React.FC<{ scene: Scene; index: number }> = ({ scene, in
   };
 
   const [isEditingPrompt, setIsEditingPrompt] = useState(false);
-  const [editedPrompt, setEditedPrompt] = useState(scene.optimizedPrompt);
-  const [editedDialogue, setEditedDialogue] = useState(scene.dialogue || '');
-  const [editedActions, setEditedActions] = useState(scene.actions.join('，'));
+    const [isRegeneratingPrompt, setIsRegeneratingPrompt] = useState(false);
+    const [editedPrompt, setEditedPrompt] = useState(scene.optimizedPrompt);
+    const [editedDialogue, setEditedDialogue] = useState(scene.dialogue || '');
+    const [editedActions, setEditedActions] = useState(scene.actions.join('，'));
 
-  const handleSaveEdits = () => {
-    updateScene(scene.id, { 
-      optimizedPrompt: editedPrompt,
-      dialogue: editedDialogue,
-      actions: editedActions.split('，').map(a => a.trim()).filter(Boolean)
-    });
-    setIsEditingPrompt(false);
-  };
+    const handleSaveEdits = () => {
+      updateScene(scene.id, {
+        optimizedPrompt: editedPrompt,
+        dialogue: editedDialogue,
+        actions: editedActions.split('，').map(a => a.trim()).filter(Boolean)
+      });
+      setIsEditingPrompt(false);
+    };
+
+    const handleRegeneratePrompt = async () => {
+      const { selectedStyle, settings } = useStore.getState();
+      if (!activeProject || !selectedStyle) return;
+      
+      setIsRegeneratingPrompt(true);
+      setErrorMsg(null);
+      
+      try {
+        const newPrompt = await regeneratePromptForScene(
+          scene,
+          selectedStyle,
+          settings,
+          { aspectRatio: activeProject.aspectRatio, frameLayout: activeProject.frameLayout }
+        );
+        updateScene(scene.id, { optimizedPrompt: newPrompt });
+        setEditedPrompt(newPrompt);
+      } catch (error: any) {
+        if (error instanceof ApiError) {
+          setErrorMsg(error.message);
+        } else {
+          setErrorMsg('发生未知网络错误。');
+        }
+      } finally {
+        setIsRegeneratingPrompt(false);
+      }
+    };
 
   return (
     <motion.div
@@ -455,10 +483,10 @@ export const SceneCard: React.FC<{ scene: Scene; index: number }> = ({ scene, in
         transition={{ delay: index * 0.1 }}
         onContextMenu={handleContextMenu}
         className={`bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden shadow-lg flex flex-col md:flex-row mb-6 relative ${
-          scene.status === 'image_generating' || scene.status === 'video_generating' ? 'border-cyan-500/50' : ''
+          scene.status === 'image_generating' || scene.status === 'video_generating' || isRegeneratingPrompt ? 'border-cyan-500/50' : ''
         }`}
       >
-        {(scene.status === 'image_generating' || scene.status === 'video_generating') && (
+        {(scene.status === 'image_generating' || scene.status === 'video_generating' || isRegeneratingPrompt) && (
           <div 
             className="absolute inset-0 z-50 bg-black/70 backdrop-blur-[2px] flex flex-col items-center justify-center cursor-not-allowed"
             onClick={(e) => e.stopPropagation()}
@@ -466,7 +494,7 @@ export const SceneCard: React.FC<{ scene: Scene; index: number }> = ({ scene, in
           >
             <RefreshCcw className="animate-spin text-cyan-400 mb-3" size={32} />
             <span className="text-sm text-cyan-400 font-bold tracking-widest">
-              {scene.status === 'image_generating' ? '正在生成分镜图...' : '正在渲染视频...'}
+              {isRegeneratingPrompt ? '正在重新生成提示词...' : (scene.status === 'image_generating' ? '正在生成分镜图...' : '正在渲染视频...')}
             </span>
           </div>
         )}
@@ -567,20 +595,30 @@ export const SceneCard: React.FC<{ scene: Scene; index: number }> = ({ scene, in
                 <span className="block text-zinc-400 font-bold mb-1">优化提示词:</span>
                 {scene.optimizedPrompt}
                 
-                {scene.status === 'awaiting_confirmation' && (
-                  <button 
-                    onClick={() => {
-                      setEditedPrompt(scene.optimizedPrompt);
-                      setEditedDialogue(scene.dialogue || '');
-                      setEditedActions(scene.actions.join('，'));
-                      setIsEditingPrompt(true);
-                    }}
-                    className="absolute top-2 right-2 p-1.5 bg-zinc-800 text-zinc-400 rounded hover:text-cyan-400 hover:bg-zinc-700 transition-colors opacity-0 group-hover:opacity-100"
-                    title="编辑提示词和描述"
+                <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button
+                    onClick={handleRegeneratePrompt}
+                    disabled={isRegeneratingPrompt || scene.status === 'image_generating' || scene.status === 'video_generating'}
+                    className="p-1.5 bg-zinc-800 text-zinc-400 rounded hover:text-cyan-400 hover:bg-zinc-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    title="重新生成提示词"
                   >
-                    <Edit2 size={14} />
+                    <Wand2 size={14} className={isRegeneratingPrompt ? "animate-pulse" : ""} />
                   </button>
-                )}
+                  {scene.status === 'awaiting_confirmation' && (
+                    <button 
+                      onClick={() => {
+                        setEditedPrompt(scene.optimizedPrompt);
+                        setEditedDialogue(scene.dialogue || '');
+                        setEditedActions(scene.actions.join('，'));
+                        setIsEditingPrompt(true);
+                      }}
+                      className="p-1.5 bg-zinc-800 text-zinc-400 rounded hover:text-cyan-400 hover:bg-zinc-700 transition-colors"
+                      title="编辑提示词和描述"
+                    >
+                      <Edit2 size={14} />
+                    </button>
+                  )}
+                </div>
               </div>
             </>
           )}

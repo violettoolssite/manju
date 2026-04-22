@@ -431,6 +431,90 @@ ${text}
 // ==============
 // Image Generation
 // ==============
+export const regeneratePromptForScene = async (
+  scene: Scene,
+  style: StyleType,
+  settings: AppSettings,
+  projectSettings: { aspectRatio: string; frameLayout: string }
+): Promise<string> => {
+  if (!settings.textAnalysisApiKey) {
+    throw new ApiError("请先在设置中配置文本分析大模型的 API Key。");
+  }
+
+  const prompt = `
+你是一个专业的影视分镜师和AI提示词专家。请为以下场景重新生成一段纯英文的AI图像生成提示词（optimizedPrompt）。
+当前全局视觉风格为: ${style.name} (${style.description})
+全局画面要求:
+- 比例: ${projectSettings.aspectRatio}
+- 画面排版: ${projectSettings.frameLayout === 'double' ? '双格图（上下/左右分屏对照）' : '单格图（常规满屏）'}
+
+当前场景信息：
+- 场景名：${scene.sceneName}
+- 场景描述：${scene.description}
+- 动作：${scene.actions.join(', ')}
+- 对白：${scene.dialogue || '无'}
+
+要求：
+1. 提示词必须是**纯英文**。
+2. 必须包含人物长相、衣着、动作、环境光影、摄像机镜头。
+3. 必须包含以下强约束：
+   "NO text, NO subtitles, NO watermarks. Layout: ${projectSettings.frameLayout === 'double' ? 'split-screen double frame' : 'single frame'}. Character features and clothing state MUST perfectly match the reference and remain strictly consistent. Do not change clothing state unless explicitly specified."
+4. 请直接输出纯文本的提示词，不要包含任何前缀、解释性文字、或引号包裹。不要输出JSON格式。
+`;
+
+  try {
+    let url = `${settings.textAnalysisBaseUrl}/chat/completions`;
+    let headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${settings.textAnalysisApiKey}`
+    };
+
+    let body: any = {
+      model: settings.textAnalysisModelName,
+      messages: [{ role: 'user', content: prompt }]
+    };
+
+    if (settings.textAnalysisProvider === 'anthropic') {
+      url = `${settings.textAnalysisBaseUrl}/messages`;
+      headers = {
+        'Content-Type': 'application/json',
+        'x-api-key': settings.textAnalysisApiKey,
+        'anthropic-version': '2023-06-01'
+      };
+      body = {
+        model: settings.textAnalysisModelName,
+        max_tokens: 1024,
+        messages: [{ role: 'user', content: prompt }]
+      };
+    }
+
+    const res = await fetch(url, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(body)
+    });
+
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      throw new ApiError(`大模型提示词重新生成失败: ${errData.error?.message || res.statusText}`);
+    }
+
+    const data = await res.json();
+    let newPrompt = '';
+
+    if (settings.textAnalysisProvider === 'anthropic') {
+      newPrompt = data.content[0].text;
+    } else {
+      newPrompt = data.choices[0].message.content;
+    }
+
+    return newPrompt.trim();
+  } catch (error: any) {
+    if (error instanceof ApiError) throw error;
+    throw new ApiError(`网络请求失败: ${error.message}`);
+  }
+};
+
 // NOTE: Since the user specifically requested no mocking, but standard OpenAI/Anthropic APIs don't do native 3D views or consistent video easily without very specific paid endpoints (like Midjourney/Runway),
 // We will still use a direct HTTP call for image generation if a generic image generation is needed. 
 // For safety, we'll try to use standard OpenAI DALL-E 3 if the text provider is OpenAI, otherwise fallback to the built-in demo URL generator but wrapped in a try/catch.
