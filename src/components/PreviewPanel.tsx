@@ -177,7 +177,7 @@ const AssetGallery: React.FC = () => {
     item: CharacterAsset | EnvironmentAsset;
   } | null>(null);
 
-  const [isRegenerating, setIsRegenerating] = useState(false);
+  const [regeneratingAssetIds, setRegeneratingAssetIds] = useState<string[]>([]);
 
   useEffect(() => {
     const handleClick = () => setContextMenu(null);
@@ -200,6 +200,8 @@ const AssetGallery: React.FC = () => {
     }
   };
 
+  const isRegenerating = contextMenu ? regeneratingAssetIds.includes(contextMenu.id) : false;
+
   const handleRegenerateAsset = async () => {
     if (contextMenu && contextMenu.item && activeProject) {
       const { type, id, item } = contextMenu;
@@ -210,7 +212,11 @@ const AssetGallery: React.FC = () => {
         return;
       }
       
-      setIsRegenerating(true);
+      if (regeneratingAssetIds.includes(id)) return;
+      
+      setRegeneratingAssetIds(prev => [...prev, id]);
+      setContextMenu(null);
+
       try {
         updateProjectAsset(type, id, { threeViewUrl: '' });
         const url = await generateThreeViewImage(type, item.name, selectedStyle.name, settings, {
@@ -221,8 +227,7 @@ const AssetGallery: React.FC = () => {
       } catch (error: any) {
         alert(`重新生成失败: ${error.message}`);
       } finally {
-        setIsRegenerating(false);
-        setContextMenu(null);
+        setRegeneratingAssetIds(prev => prev.filter(aid => aid !== id));
       }
     }
   };
@@ -241,11 +246,19 @@ const AssetGallery: React.FC = () => {
           <div className="flex gap-3 overflow-x-auto pb-2 custom-scrollbar">
             {projectCharacters.map(char => (
               <div
-                key={char.id}
-                onContextMenu={(e) => handleContextMenu(e, char.id, 'character', char)}
-                className="shrink-0 w-32 relative group rounded-lg overflow-hidden border border-zinc-700 cursor-context-menu hover:border-cyan-500/50 transition-colors bg-zinc-950 flex flex-col"
-              >
-                {char.threeViewUrl ? (
+                  key={char.id}
+                  onContextMenu={(e) => handleContextMenu(e, char.id, 'character', char)}
+                  className={`shrink-0 w-32 relative group rounded-lg overflow-hidden border border-zinc-700 cursor-context-menu transition-colors bg-zinc-950 flex flex-col ${
+                    regeneratingAssetIds.includes(char.id) ? 'border-cyan-500/50' : 'hover:border-cyan-500/50'
+                  }`}
+                >
+                  {regeneratingAssetIds.includes(char.id) && (
+                    <div className="absolute inset-0 bg-black/60 z-20 flex flex-col items-center justify-center pointer-events-none">
+                      <RefreshCcw className="animate-spin text-cyan-400 mb-1" size={16} />
+                      <span className="text-[10px] text-cyan-400 font-bold">生成中...</span>
+                    </div>
+                  )}
+                  {char.threeViewUrl ? (
                   <img src={char.threeViewUrl} alt={char.name} className="w-full h-24 object-cover" />
                 ) : (
                   <div className="w-full h-24 flex items-center justify-center text-zinc-600">
@@ -268,11 +281,19 @@ const AssetGallery: React.FC = () => {
           <div className="flex gap-3 overflow-x-auto pb-2 custom-scrollbar">
             {projectEnvironments.map(env => (
               <div
-                key={env.id}
-                onContextMenu={(e) => handleContextMenu(e, env.id, 'environment', env)}
-                className="shrink-0 w-32 relative group rounded-lg overflow-hidden border border-zinc-700 cursor-context-menu hover:border-cyan-500/50 transition-colors bg-zinc-950 flex flex-col"
-              >
-                {env.threeViewUrl ? (
+                  key={env.id}
+                  onContextMenu={(e) => handleContextMenu(e, env.id, 'environment', env)}
+                  className={`shrink-0 w-32 relative group rounded-lg overflow-hidden border border-zinc-700 cursor-context-menu transition-colors bg-zinc-950 flex flex-col ${
+                    regeneratingAssetIds.includes(env.id) ? 'border-cyan-500/50' : 'hover:border-cyan-500/50'
+                  }`}
+                >
+                  {regeneratingAssetIds.includes(env.id) && (
+                    <div className="absolute inset-0 bg-black/60 z-20 flex flex-col items-center justify-center pointer-events-none">
+                      <RefreshCcw className="animate-spin text-cyan-400 mb-1" size={16} />
+                      <span className="text-[10px] text-cyan-400 font-bold">生成中...</span>
+                    </div>
+                  )}
+                  {env.threeViewUrl ? (
                   <img src={env.threeViewUrl} alt={env.name} className="w-full h-24 object-cover" />
                 ) : (
                   <div className="w-full h-24 flex items-center justify-center text-zinc-600">
@@ -301,18 +322,18 @@ const AssetGallery: React.FC = () => {
             onClick={(e) => e.stopPropagation()}
           >
             <button
-              onClick={handleRegenerateAsset}
-              disabled={isRegenerating}
-              className="w-full text-left px-4 py-2 text-sm text-cyan-400 hover:bg-cyan-500/20 flex items-center gap-2 disabled:opacity-50"
-            >
-              <RefreshCcw size={14} className={isRegenerating ? "animate-spin" : ""} />
-              重新生成三视图
-            </button>
-            <button
-              onClick={handleDeleteAsset}
-              disabled={isRegenerating}
-              className="w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-red-500/20 flex items-center gap-2 disabled:opacity-50"
-            >
+                onClick={handleRegenerateAsset}
+                disabled={isRegenerating}
+                className="w-full text-left px-4 py-2 text-sm text-cyan-400 hover:bg-cyan-500/20 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <RefreshCcw size={14} className={isRegenerating ? "animate-spin" : ""} />
+                重新生成三视图
+              </button>
+              <button
+                onClick={handleDeleteAsset}
+                disabled={isRegenerating}
+                className="w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-red-500/20 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
               <Trash2 size={14} />
               删除该{contextMenu.type === 'character' ? '人物' : '场景'}资产
             </button>
@@ -568,24 +589,36 @@ export const SceneCard: React.FC<{ scene: Scene; index: number }> = ({ scene, in
           </AnimatePresence>
 
           <div className="flex gap-2 mt-4">
-            {scene.status !== 'pending' && scene.status !== 'image_generating' && (
-              <button
-                onClick={handleRegenerateImage}
-                className="flex-1 bg-zinc-800 hover:bg-cyan-500/20 text-cyan-400 text-xs font-bold py-2 rounded-xl transition-all border border-zinc-700 hover:border-cyan-500/50 flex items-center justify-center gap-1"
-              >
-                <RefreshCcw size={12} /> 重新生成图片
-              </button>
-            )}
-            
-            {scene.status === 'completed' && (
-              <button
-                onClick={handleConfirmAndGenerateVideo}
-                className="flex-1 bg-zinc-800 hover:bg-purple-500/20 text-purple-400 text-xs font-bold py-2 rounded-xl transition-all border border-zinc-700 hover:border-purple-500/50 flex items-center justify-center gap-1"
-              >
-                <RefreshCcw size={12} /> 重新生成视频
-              </button>
-            )}
-          </div>
+              {scene.status !== 'pending' && (
+                <button
+                  onClick={handleRegenerateImage}
+                  disabled={scene.status === 'image_generating' || scene.status === 'video_generating'}
+                  className={`flex-1 text-xs font-bold py-2 rounded-xl transition-all border flex items-center justify-center gap-1 ${
+                    scene.status === 'image_generating' || scene.status === 'video_generating'
+                      ? 'bg-zinc-800/50 text-zinc-500 border-zinc-800 cursor-not-allowed'
+                      : 'bg-zinc-800 hover:bg-cyan-500/20 text-cyan-400 border-zinc-700 hover:border-cyan-500/50'
+                  }`}
+                >
+                  <RefreshCcw size={12} className={scene.status === 'image_generating' ? 'animate-spin' : ''} /> 
+                  {scene.status === 'image_generating' ? '生成图片中...' : '重新生成图片'}
+                </button>
+              )}
+
+              {(scene.status === 'completed' || scene.status === 'video_generating') && (
+                <button
+                  onClick={handleConfirmAndGenerateVideo}
+                  disabled={scene.status === 'image_generating' || scene.status === 'video_generating'}
+                  className={`flex-1 text-xs font-bold py-2 rounded-xl transition-all border flex items-center justify-center gap-1 ${
+                    scene.status === 'image_generating' || scene.status === 'video_generating'
+                      ? 'bg-zinc-800/50 text-zinc-500 border-zinc-800 cursor-not-allowed'
+                      : 'bg-zinc-800 hover:bg-purple-500/20 text-purple-400 border-zinc-700 hover:border-purple-500/50'
+                  }`}
+                >
+                  <RefreshCcw size={12} className={scene.status === 'video_generating' ? 'animate-spin' : ''} /> 
+                  {scene.status === 'video_generating' ? '生成视频中...' : '重新生成视频'}
+                </button>
+              )}
+            </div>
         </div>
       </div>
 
