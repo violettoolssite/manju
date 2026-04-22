@@ -528,7 +528,7 @@ export const generateThreeViewImage = async (type: 'character' | 'environment', 
   const prompt = `(Style: ${styleName}) multiple views, orthographic projection, front side back view of ${type} ${name}, concept art, reference sheet, masterpiece`;
   
   try {
-    if (settings.imageGenerationProvider === 'dalle' || settings.imageGenerationProvider === 'custom') {
+      // 大多数主流生图API（豆包、智谱、Moonshot等）都兼容 OpenAI 的 /images/generations 端点格式
       const res = await fetch(`${settings.imageGenerationBaseUrl}/images/generations`, {
         method: 'POST',
         headers: {
@@ -545,15 +545,12 @@ export const generateThreeViewImage = async (type: 'character' | 'environment', 
 
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
-        throw new ApiError(`三视图生成失败: ${errData.error?.message || res.statusText}`);
+        throw new ApiError(`三视图生成失败: ${errData.error?.message || errData.message || res.statusText}`);
       }
 
       const data = await res.json();
       return data.data[0].url;
-    } else {
-       throw new ApiError(`当前配置(${settings.imageGenerationProvider})需要您自行适配对应的生图端点。`);
-    }
-  } catch (error) {
+    } catch (error) {
     if (error instanceof ApiError) throw error;
     throw new ApiError(`图片生成网络错误: ${error instanceof Error ? error.message : String(error)}`);
   }
@@ -577,7 +574,6 @@ export const generateImageForScene = async (scene: Scene, settings: AppSettings,
   else if (projectSettings.aspectRatio === '3:4') size = "1024x1024"; // approximate
 
   try {
-    if (settings.imageGenerationProvider === 'dalle' || settings.imageGenerationProvider === 'custom') {
       const res = await fetch(`${settings.imageGenerationBaseUrl}/images/generations`, {
         method: 'POST',
         headers: {
@@ -594,15 +590,12 @@ export const generateImageForScene = async (scene: Scene, settings: AppSettings,
 
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
-        throw new ApiError(`分镜图生成失败: ${errData.error?.message || res.statusText}`);
+        throw new ApiError(`分镜图生成失败: ${errData.error?.message || errData.message || res.statusText}`);
       }
 
       const data = await res.json();
       return data.data[0].url;
-    } else {
-       throw new ApiError(`当前配置(${settings.imageGenerationProvider})需要您自行适配对应的生图端点。`);
-    }
-  } catch (error) {
+    } catch (error) {
     if (error instanceof ApiError) throw error;
     throw new ApiError(`分镜图生成网络错误: ${error instanceof Error ? error.message : String(error)}`);
   }
@@ -621,43 +614,72 @@ export const generateVideoForScene = async (scene: Scene, settings: AppSettings,
   const finalPrompt = `${scene.optimizedPrompt}. ${videoConstraints}`;
 
   try {
-    // Attempting to hit the video API endpoint
-    // Since Runway Gen-2 and Pika APIs have specific complex polling mechanics, 
-    // we will implement a direct POST request to the BaseURL assuming a generic text/image-to-video schema.
-    // If it fails, the catch block will format the error beautifully.
-    
-    const res = await fetch(`${settings.videoGenerationBaseUrl}/videos/generations`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${settings.videoGenerationApiKey}`
-      },
-      body: JSON.stringify({
-        model: settings.videoGenerationModelName || 'gen3a-turbo',
-        promptText: finalPrompt,
-        promptImage: scene.imageUrl,
-        seedImage: scene.isContinuous ? previousFrameUrl : undefined, // Frame continuity
-        aspect_ratio: projectSettings.aspectRatio
-      })
-    });
+      if (settings.videoGenerationProvider === 'doubao') {
+        const res = await fetch(`${settings.videoGenerationBaseUrl}/contents/generations/tasks`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${settings.videoGenerationApiKey}`
+          },
+          body: JSON.stringify({
+            model: settings.videoGenerationModelName || "doubao-seedance-1-5-pro-251215",
+            content: [
+              {
+                type: "text",
+                text: `${finalPrompt} --duration 5 --camerafixed false --watermark true`
+              },
+              {
+                type: "image_url",
+                image_url: {
+                  url: scene.imageUrl
+                }
+              }
+            ]
+          })
+        });
 
-    if (!res.ok) {
-      const errData = await res.json().catch(() => ({}));
-      throw new ApiError(`视频生成请求失败: ${res.status} ${errData.error?.message || errData.message || res.statusText}。可能是由于未正确配置第三方 API 路由或密钥无效。`);
-    }
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new ApiError(`火山引擎视频生成请求失败: ${res.status} ${errData.error?.message || errData.message || res.statusText}`);
+        }
 
-    const data = await res.json();
-    
-    // Most video APIs require polling. For the sake of this synchronous structure, we expect a direct URL back or we throw an error.
-    if (!data.videoUrl && !data.output) {
-      throw new ApiError("视频API返回成功，但未包含有效的视频链接 (videoUrl)。这通常是因为该模型接口需要轮询获取结果。");
-    }
+        const data = await res.json();
+        
+        throw new ApiError("火山引擎 API 任务创建成功。但由于该 API 需要轮询任务状态获取结果，暂不支持在此演示环境中同步返回。");
+      } else {
+        const res = await fetch(`${settings.videoGenerationBaseUrl}/videos/generations`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${settings.videoGenerationApiKey}`
+          },
+          body: JSON.stringify({
+            model: settings.videoGenerationModelName || 'gen3a-turbo',
+            promptText: finalPrompt,
+            promptImage: scene.imageUrl,
+            seedImage: scene.isContinuous ? previousFrameUrl : undefined, // Frame continuity
+            aspect_ratio: projectSettings.aspectRatio
+          })
+        });
 
-    return {
-      videoUrl: data.videoUrl || data.output,
-      lastFrameUrl: data.lastFrameUrl || scene.imageUrl || '',
-    };
-  } catch (error) {
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new ApiError(`视频生成请求失败: ${res.status} ${errData.error?.message || errData.message || res.statusText}。可能是由于未正确配置第三方 API 路由或密钥无效。`);
+        }
+
+        const data = await res.json();
+
+        // Most video APIs require polling. For the sake of this synchronous structure, we expect a direct URL back or we throw an error.
+        if (!data.videoUrl && !data.output) {
+          throw new ApiError("视频API返回成功，但未包含有效的视频链接 (videoUrl)。这通常是因为该模型接口需要轮询获取结果。");
+        }
+
+        return {
+          videoUrl: data.videoUrl || data.output,
+          lastFrameUrl: data.lastFrameUrl || scene.imageUrl || '',
+        };
+      }
+    } catch (error) {
     if (error instanceof ApiError) throw error;
     throw new ApiError(`视频生成网络异常: ${error instanceof Error ? error.message : String(error)}。请检查您的 Base URL 和网络环境。`);
   }
