@@ -1,4 +1,4 @@
-import { AppSettings, Scene, CharacterAsset, EnvironmentAsset, StyleOption } from '../store/useStore';
+import { Scene, StyleOption, CharacterAsset, EnvironmentAsset, AppSettings } from '../store/useStore';
 
 export const MOCK_STYLES: StyleOption[] = [
   // 1. 写实/摄影风格
@@ -433,7 +433,7 @@ ${text}
 // ==============
 export const regeneratePromptForScene = async (
   scene: Scene,
-  style: StyleType,
+  style: StyleOption,
   settings: AppSettings,
   projectSettings: { aspectRatio: string; frameLayout: string }
 ): Promise<string> => {
@@ -528,30 +528,19 @@ export const generateThreeViewImage = async (type: 'character' | 'environment', 
   const prompt = `(Style: ${styleName}) multiple views, orthographic projection, front side back view of ${type} ${name}, concept art, reference sheet, masterpiece`;
   
   try {
-      const isDoubao = settings.imageGenerationProvider === 'doubao';
-      const endpoint = isDoubao 
-        ? `${settings.imageGenerationBaseUrl}/images/generations` 
-        : `${settings.imageGenerationBaseUrl}/images/generations`;
-
-      let body: any = {
-        model: settings.imageGenerationModelName || "dall-e-3",
-        prompt: prompt,
-        n: 1,
-        size: "1024x1024"
-      };
-
-      // Handle Doubao image model special case if needed
-      if (isDoubao && !body.model.startsWith('ep-')) {
-        throw new ApiError('火山引擎(豆包)图片生成模型标识必须是 endpoint id，如 ep-xxx-xxx');
-      }
-
-      const res = await fetch(endpoint, {
+      // 大多数主流生图API（豆包、智谱、Moonshot等）都兼容 OpenAI 的 /images/generations 端点格式
+      const res = await fetch(`${settings.imageGenerationBaseUrl}/images/generations`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${settings.imageGenerationApiKey}`
         },
-        body: JSON.stringify(body)
+        body: JSON.stringify({
+          model: settings.imageGenerationModelName || "dall-e-3",
+          prompt: prompt,
+          n: 1,
+          size: "1024x1024"
+        })
       });
 
       if (!res.ok) {
@@ -585,29 +574,18 @@ export const generateImageForScene = async (scene: Scene, settings: AppSettings,
   else if (projectSettings.aspectRatio === '3:4') size = "1024x1024"; // approximate
 
   try {
-      const isDoubao = settings.imageGenerationProvider === 'doubao';
-      const endpoint = isDoubao 
-        ? `${settings.imageGenerationBaseUrl}/images/generations` 
-        : `${settings.imageGenerationBaseUrl}/images/generations`;
-
-      let body: any = {
-        model: settings.imageGenerationModelName || "dall-e-3",
-        prompt: finalPrompt,
-        n: 1,
-        size: size
-      };
-
-      if (isDoubao && !body.model.startsWith('ep-')) {
-        throw new ApiError('火山引擎(豆包)图片生成模型标识必须是 endpoint id，如 ep-xxx-xxx');
-      }
-
-      const res = await fetch(endpoint, {
+      const res = await fetch(`${settings.imageGenerationBaseUrl}/images/generations`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${settings.imageGenerationApiKey}`
         },
-        body: JSON.stringify(body)
+        body: JSON.stringify({
+          model: settings.imageGenerationModelName || "dall-e-3",
+          prompt: finalPrompt,
+          n: 1,
+          size: size
+        })
       });
 
       if (!res.ok) {
