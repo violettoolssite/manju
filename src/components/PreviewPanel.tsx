@@ -253,11 +253,15 @@ const AssetGallery: React.FC = () => {
                   }`}
                 >
                   {regeneratingAssetIds.includes(char.id) && (
-                    <div className="absolute inset-0 bg-black/60 z-20 flex flex-col items-center justify-center pointer-events-none">
-                      <RefreshCcw className="animate-spin text-cyan-400 mb-1" size={16} />
-                      <span className="text-[10px] text-cyan-400 font-bold">生成中...</span>
-                    </div>
-                  )}
+                      <div 
+                        className="absolute inset-0 bg-black/60 z-20 flex flex-col items-center justify-center pointer-events-auto cursor-not-allowed"
+                        onClick={(e) => e.stopPropagation()}
+                        onContextMenu={(e) => e.stopPropagation()}
+                      >
+                        <RefreshCcw className="animate-spin text-cyan-400 mb-1" size={16} />
+                        <span className="text-[10px] text-cyan-400 font-bold">生成中...</span>
+                      </div>
+                    )}
                   {char.threeViewUrl ? (
                   <img src={char.threeViewUrl} alt={char.name} className="w-full h-24 object-cover" />
                 ) : (
@@ -288,11 +292,15 @@ const AssetGallery: React.FC = () => {
                   }`}
                 >
                   {regeneratingAssetIds.includes(env.id) && (
-                    <div className="absolute inset-0 bg-black/60 z-20 flex flex-col items-center justify-center pointer-events-none">
-                      <RefreshCcw className="animate-spin text-cyan-400 mb-1" size={16} />
-                      <span className="text-[10px] text-cyan-400 font-bold">生成中...</span>
-                    </div>
-                  )}
+                      <div 
+                        className="absolute inset-0 bg-black/60 z-20 flex flex-col items-center justify-center pointer-events-auto cursor-not-allowed"
+                        onClick={(e) => e.stopPropagation()}
+                        onContextMenu={(e) => e.stopPropagation()}
+                      >
+                        <RefreshCcw className="animate-spin text-cyan-400 mb-1" size={16} />
+                        <span className="text-[10px] text-cyan-400 font-bold">生成中...</span>
+                      </div>
+                    )}
                   {env.threeViewUrl ? (
                   <img src={env.threeViewUrl} alt={env.name} className="w-full h-24 object-cover" />
                 ) : (
@@ -442,13 +450,27 @@ export const SceneCard: React.FC<{ scene: Scene; index: number }> = ({ scene, in
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * 0.1 }}
-      onContextMenu={handleContextMenu}
-      className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden shadow-lg flex flex-col md:flex-row mb-6 relative"
-    >
-      <div className="w-full md:w-2/5 p-6 border-b md:border-b-0 md:border-r border-zinc-800 flex flex-col justify-between">
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: index * 0.1 }}
+        onContextMenu={handleContextMenu}
+        className={`bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden shadow-lg flex flex-col md:flex-row mb-6 relative ${
+          scene.status === 'image_generating' || scene.status === 'video_generating' ? 'border-cyan-500/50' : ''
+        }`}
+      >
+        {(scene.status === 'image_generating' || scene.status === 'video_generating') && (
+          <div 
+            className="absolute inset-0 z-50 bg-black/70 backdrop-blur-[2px] flex flex-col items-center justify-center cursor-not-allowed"
+            onClick={(e) => e.stopPropagation()}
+            onContextMenu={(e) => e.stopPropagation()}
+          >
+            <RefreshCcw className="animate-spin text-cyan-400 mb-3" size={32} />
+            <span className="text-sm text-cyan-400 font-bold tracking-widest">
+              {scene.status === 'image_generating' ? '正在生成分镜图...' : '正在渲染视频...'}
+            </span>
+          </div>
+        )}
+        <div className="w-full md:w-2/5 p-6 border-b md:border-b-0 md:border-r border-zinc-800 flex flex-col justify-between">
         <div>
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-xl font-bold text-white flex items-center gap-2">
