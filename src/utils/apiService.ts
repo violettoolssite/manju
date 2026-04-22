@@ -1,4 +1,4 @@
-import { Scene, StyleOption, CharacterAsset, EnvironmentAsset, AppSettings, StyleType } from '../store/useStore';
+import { AppSettings, Scene, CharacterAsset, EnvironmentAsset, StyleOption } from '../store/useStore';
 
 export const MOCK_STYLES: StyleOption[] = [
   // 1. 写实/摄影风格
