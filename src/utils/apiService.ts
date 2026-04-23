@@ -621,7 +621,7 @@ export const generateVideoForScene = async (scene: Scene, settings: AppSettings,
             content: [
               {
                 type: "text",
-                text: `${finalPrompt} --duration 5 --camerafixed false --watermark true`
+                text: finalPrompt
               },
               {
                 type: "image_url",
@@ -629,7 +629,11 @@ export const generateVideoForScene = async (scene: Scene, settings: AppSettings,
                   url: scene.imageUrl
                 }
               }
-            ]
+            ],
+            ratio: projectSettings.aspectRatio,
+            duration: 5,
+            watermark: true,
+            camerafixed: false
           })
         });
 
@@ -639,8 +643,52 @@ export const generateVideoForScene = async (scene: Scene, settings: AppSettings,
         }
 
         const data = await res.json();
-        
-        throw new ApiError("火山引擎 API 任务创建成功。但由于该 API 需要轮询任务状态获取结果，暂不支持在此演示环境中同步返回。");
+          const taskId = data.id || data.task_id || data.data?.id;
+
+          if (!taskId) {
+            throw new ApiError(`任务创建成功，但未能获取到 taskId。原始返回: ${JSON.stringify(data)}`);
+          }
+
+          // Polling loop
+          let attempts = 0;
+          const maxAttempts = 60; // 30 mins max if 30s per poll
+          while (attempts < maxAttempts) {
+            await new Promise(resolve => setTimeout(resolve, 30000)); // 30 seconds delay
+            
+            const getRes = await fetch(`${settings.videoGenerationBaseUrl}/contents/generations/tasks/${taskId}`, {
+              method: 'GET',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${settings.videoGenerationApiKey}`
+              }
+            });
+
+            if (!getRes.ok) {
+              const errData = await getRes.json().catch(() => ({}));
+              throw new ApiError(`查询视频状态失败: ${errData.error?.message || getRes.statusText}`);
+            }
+
+            const getResult = await getRes.json();
+            const status = getResult.status || getResult.data?.status;
+
+            if (status === 'succeeded' || status === 'SUCCEEDED') {
+              // Different API versions might return the video URL in different paths
+              const videoUrl = getResult.content?.video_url || getResult.video_url || getResult.data?.video_url || getResult.content?.[0]?.video_url?.url;
+              if (!videoUrl) {
+                throw new ApiError(`任务显示成功，但找不到视频链接。返回数据: ${JSON.stringify(getResult)}`);
+              }
+              return {
+                videoUrl: videoUrl,
+                lastFrameUrl: scene.imageUrl || ''
+              };
+            } else if (status === 'failed' || status === 'FAILED') {
+              throw new ApiError(`视频生成任务失败: ${getResult.error?.message || getResult.message || '未知错误'}`);
+            }
+            
+            attempts++;
+          }
+
+          throw new ApiError("火山引擎视频生成任务超时 (超过 30 分钟)。请稍后在控制台查看。");
       } else {
         const res = await fetch(`${settings.videoGenerationBaseUrl}/videos/generations`, {
           method: 'POST',
