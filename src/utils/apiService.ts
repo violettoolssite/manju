@@ -529,17 +529,24 @@ export const generateThreeViewImage = async (type: 'character' | 'environment', 
   
   try {
       // 大多数主流生图API（豆包、智谱、Moonshot等）都兼容 OpenAI 的 /images/generations 端点格式
-      const res = await fetch(`${settings.imageGenerationBaseUrl}/images/generations`, {
+        const requestBody: any = {
+          model: settings.imageGenerationModelName || "doubao-seedream-5-0-260128",
+          prompt: prompt,
+          size: "1024x1024"
+        };
+        
+        // 豆包 API 不支持 size 参数的某些特殊组合或某些情况下会报错
+        if (settings.imageGenerationProvider === 'doubao') {
+          delete requestBody.size;
+        }
+
+        const res = await fetch(`${settings.imageGenerationBaseUrl}/images/generations`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
               'Authorization': `Bearer ${settings.imageGenerationApiKey}`
             },
-            body: JSON.stringify({
-              model: settings.imageGenerationModelName || "doubao-seedream-5-0-260128",
-              prompt: prompt,
-              size: "1024x1024"
-            })
+            body: JSON.stringify(requestBody)
           });
 
       if (!res.ok) {
@@ -570,17 +577,23 @@ export const generateImageForScene = async (scene: Scene, settings: AppSettings,
     else if (projectSettings.aspectRatio === '9:16') mappedSize = "1080x1920";
 
     try {
+        const requestBody: any = {
+          model: settings.imageGenerationModelName || "doubao-seedream-5-0-260128",
+          prompt: finalPrompt,
+          size: mappedSize
+        };
+
+        if (settings.imageGenerationProvider === 'doubao') {
+          delete requestBody.size;
+        }
+
         const res = await fetch(`${settings.imageGenerationBaseUrl}/images/generations`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
               'Authorization': `Bearer ${settings.imageGenerationApiKey}`
             },
-            body: JSON.stringify({
-              model: settings.imageGenerationModelName || "doubao-seedream-5-0-260128",
-              prompt: finalPrompt,
-              size: mappedSize
-            })
+            body: JSON.stringify(requestBody)
           });
 
       if (!res.ok) {
