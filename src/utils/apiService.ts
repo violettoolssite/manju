@@ -550,9 +550,11 @@ export const generateThreeViewImage = async (
 
   let prompt = '';
   if (type === 'character') {
-    prompt = `(Style: ${styleName}) Real-life photography character reference sheet of ${name}. Character details: ${description}. Three distinct full-body views side-by-side: left profile view, front view, and back view. Standing straight, clean plain grey background, orthographic projection. ${photorealisticModifiers}`;
+    // 【修改点】：直接将参考图格式的描述词替换为您提供的极简左右分屏拼接样式的英语描述词
+    prompt = `(Style: ${styleName}) ${description}. A cinematic photorealistic image. The image is split into TWO panels side-by-side. The LEFT panel shows a close-up portrait of the person's face. The RIGHT panel shows three distinct full-body views of the SAME person standing side-by-side: left profile view, front view, and back view. Clean plain grey background for the right panel. ${photorealisticModifiers}`;
   } else {
-    prompt = `(Style: ${styleName}) Real-life photography multiple views, orthographic projection, reference sheet of ${type} ${name}. Details: ${description}. Wide angle. ${photorealisticModifiers}`;
+    // 【修改点】：直接将场景参考图的格式改为：1个主图+6个小图网格拼接的参考板样式
+    prompt = `(Style: ${styleName}) ${description}. A cinematic photorealistic environment reference board. The image is a grid layout. The top half is ONE large main wide-angle view of the room. The bottom half is split into SIX small thumbnail views showing different details, props, and angles of the same room. ${photorealisticModifiers}`;
   }
   
   try {
