@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Play, Download, Pause, Maximize2, Camera, Link as LinkIcon, RefreshCcw, User, MapPin, FolderKanban, Trash2, AlertTriangle, Edit2, CheckCircle2, MessageSquare, Wand2 } from 'lucide-react';
 import { useStore, Scene, CharacterAsset, EnvironmentAsset } from '../store/useStore';
-import { generateImageForScene, generateVideoForScene, generateThreeViewImage, ApiError, regeneratePromptForScene } from '../utils/apiService';
+import { ApiError, generateImageForScene, generateVideoForScene, generateThreeViewImage, regeneratePromptForScene, cancelVideoTask } from '../utils/apiService';
 
 const WorkflowToolbar: React.FC = () => {
   const { 
@@ -52,13 +52,15 @@ const WorkflowToolbar: React.FC = () => {
     if (!activeProject) return;
     setIsProcessing(true);
     try {
-      for (const scene of scenes) {
+      for (let i = 0; i < scenes.length; i++) {
+        const scene = scenes[i];
         if (!scene.imageUrl) {
           updateScene(scene.id, { status: 'image_generating' });
+          const prevScene = i > 0 ? scenes[i - 1] : undefined;
           const url = await generateImageForScene(scene, settings, {
             aspectRatio: activeProject.aspectRatio,
             frameLayout: activeProject.frameLayout
-          });
+          }, projectCharacters, prevScene);
           updateScene(scene.id, { imageUrl: url, status: 'awaiting_confirmation' });
         }
       }
@@ -353,7 +355,7 @@ const AssetGallery: React.FC = () => {
 };
 
 export const SceneCard: React.FC<{ scene: Scene; index: number }> = ({ scene, index }) => {
-  const { updateScene, deleteScene, settings, currentProjectId, projects } = useStore();
+  const { updateScene, deleteScene, settings, currentProjectId, projects, projectCharacters } = useStore();
   const videoRef = useRef<HTMLVideoElement>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -382,10 +384,11 @@ export const SceneCard: React.FC<{ scene: Scene; index: number }> = ({ scene, in
     try {
       setErrorMsg(null);
       updateScene(scene.id, { status: 'image_generating' });
+      const prevScene = index > 0 ? useStore.getState().scenes[index - 1] : undefined;
       const imageUrl = await generateImageForScene(scene, settings, {
         aspectRatio: activeProject.aspectRatio,
         frameLayout: activeProject.frameLayout
-      });
+      }, projectCharacters, prevScene);
       updateScene(scene.id, { imageUrl, status: 'awaiting_confirmation' });
     } catch (error) {
       console.error('Image regeneration failed:', error);
@@ -418,21 +421,41 @@ export const SceneCard: React.FC<{ scene: Scene; index: number }> = ({ scene, in
       }
 
       // Video generation
-      const { videoUrl, lastFrameUrl } = await generateVideoForScene(scene, settings, previousFrameUrl, {
-        aspectRatio: activeProject.aspectRatio,
-        frameLayout: activeProject.frameLayout
-      });
-      updateScene(scene.id, { videoUrl, lastFrameUrl, status: 'completed' });
-    } catch (error) {
-      console.error('Video generation failed:', error);
-      if (error instanceof ApiError) {
-        setErrorMsg(error.message);
-      } else {
-        setErrorMsg('发生未知网络错误。');
+        const { videoUrl, lastFrameUrl } = await generateVideoForScene(
+          scene, 
+          settings, 
+          previousFrameUrl, 
+          {
+            aspectRatio: activeProject.aspectRatio,
+            frameLayout: activeProject.frameLayout
+          },
+          (taskId) => {
+            updateScene(scene.id, { currentVideoTaskId: taskId });
+          }
+        );
+        updateScene(scene.id, { videoUrl, lastFrameUrl, status: 'completed', currentVideoTaskId: undefined });
+      } catch (error) {
+        console.error('Video generation failed:', error);
+        if (error instanceof ApiError) {
+          setErrorMsg(error.message);
+        } else {
+          setErrorMsg('发生未知网络错误。');
+        }
+        updateScene(scene.id, { status: 'awaiting_confirmation', currentVideoTaskId: undefined });
       }
-      updateScene(scene.id, { status: 'awaiting_confirmation' });
-    }
-  };
+    };
+
+    const handleCancelVideoGeneration = async () => {
+      if (scene.status !== 'video_generating' || !scene.currentVideoTaskId) return;
+      
+      try {
+        await cancelVideoTask(scene.currentVideoTaskId, settings);
+        updateScene(scene.id, { status: 'awaiting_confirmation', currentVideoTaskId: undefined });
+        setErrorMsg('已取消视频生成任务。');
+      } catch (error) {
+        console.error('Failed to cancel video task:', error);
+      }
+    };
 
   const [isEditingPrompt, setIsEditingPrompt] = useState(false);
     const [isRegeneratingPrompt, setIsRegeneratingPrompt] = useState(false);
@@ -488,14 +511,23 @@ export const SceneCard: React.FC<{ scene: Scene; index: number }> = ({ scene, in
       >
         {(scene.status === 'image_generating' || scene.status === 'video_generating' || isRegeneratingPrompt) && (
           <div 
-            className="absolute inset-0 z-50 bg-black/70 backdrop-blur-[2px] flex flex-col items-center justify-center cursor-not-allowed"
+            className="absolute inset-0 z-50 bg-black/70 backdrop-blur-[2px] flex flex-col items-center justify-center"
             onClick={(e) => e.stopPropagation()}
             onContextMenu={(e) => e.stopPropagation()}
           >
             <RefreshCcw className="animate-spin text-cyan-400 mb-3" size={32} />
-            <span className="text-sm text-cyan-400 font-bold tracking-widest">
+            <span className="text-sm text-cyan-400 font-bold tracking-widest mb-4">
               {isRegeneratingPrompt ? '正在重新生成提示词...' : (scene.status === 'image_generating' ? '正在生成分镜图...' : '正在渲染视频...')}
             </span>
+            
+            {scene.status === 'video_generating' && scene.currentVideoTaskId && (
+              <button 
+                onClick={handleCancelVideoGeneration}
+                className="px-4 py-2 bg-red-500/20 hover:bg-red-500/40 text-red-400 text-xs font-bold rounded-lg border border-red-500/30 transition-colors"
+              >
+                取消视频生成
+              </button>
+            )}
           </div>
         )}
         <div className="w-full md:w-2/5 p-6 border-b md:border-b-0 md:border-r border-zinc-800 flex flex-col justify-between">

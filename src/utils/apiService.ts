@@ -3,6 +3,12 @@ import { Scene, StyleOption, CharacterAsset, EnvironmentAsset, AppSettings } fro
 export const MOCK_STYLES: StyleOption[] = [
   // 1. 写实/摄影风格
   {
+    id: 'modern_urban',
+    name: '现代都市风格 (Modern Urban)',
+    description: '现代城市背景，高楼林立，霓虹灯光或冷色调街道，写实风格，带有强烈的当代生活气息和都市感。',
+    thumbnail: 'https://coresg-normal.trae.ai/api/ide/v1/text_to_image?prompt=modern%20urban%20city%20street%20neon%20lights%20realistic%20photography&image_size=landscape_16_9',
+  },
+  {
     id: 'cinematic',
     name: '写实电影 (Cinematic)',
     description: '好莱坞大片质感，8K超高清，真实物理光影，浅景深虚化背景，色彩偏冷峻严肃的叙事风格。',
@@ -280,8 +286,9 @@ export const parseTextToScenes = async (
 2. 提取所有场景/环境，包含名称和详细描述。如果在已有的场景列表中已存在，请保持名字完全一致。
 3. 将文本划分为连续的场景(Scene)。
 4. 为每个场景生成 optimizedPrompt（用于AI图像生成），该提示词必须是**纯英文**，不仅要包含人物长相、衣着、动作、环境光影、摄像机镜头，还必须包含以下强约束：
-   "NO text, NO subtitles, NO watermarks. Layout: ${projectSettings.frameLayout === 'double' ? 'split-screen double frame' : 'single frame'}. Character features and clothing state MUST perfectly match the reference and remain strictly consistent. Do not change clothing state unless explicitly specified."
-5. 必须返回标准的JSON格式，不要包含任何markdown标记（如 \`\`\`json ），不要包含任何其他解释性文字。直接输出从 { 开始的合法 JSON 字符串。
+     "NO text, NO subtitles, NO watermarks. Layout: ${projectSettings.frameLayout === 'double' ? 'split-screen double frame' : 'single frame'}. Character features and clothing state MUST perfectly match the reference and remain strictly consistent. Do not change clothing state unless explicitly specified. The image MUST strictly follow the requested visual style: ${style.name}."
+  5. 提示词中必须直接嵌入能体现全局风格（${style.name}）特征的描述词和光影要求，保证最终生成的画面百分百契合该风格。
+  6. 必须返回标准的JSON格式，不要包含任何markdown标记（如 \`\`\`json ），不要包含任何其他解释性文字。直接输出从 { 开始的合法 JSON 字符串。
 
 JSON格式如下：
 {
@@ -461,11 +468,12 @@ export const regeneratePromptForScene = async (
 - 对白：${scene.dialogue || '无'}
 
 要求：
-1. 提示词必须是**纯英文**。
-2. 必须包含人物长相、衣着、动作、环境光影、摄像机镜头。
-3. 必须包含以下强约束：
-   "NO text, NO subtitles, NO watermarks. Layout: ${projectSettings.frameLayout === 'double' ? 'split-screen double frame' : 'single frame'}. Character features and clothing state MUST perfectly match the reference and remain strictly consistent. Do not change clothing state unless explicitly specified."
-4. 请直接输出纯文本的提示词，不要包含任何前缀、解释性文字、或引号包裹。不要输出JSON格式。
+  1. 提示词必须是**纯英文**。
+  2. 必须包含人物长相、衣着、动作、环境光影、摄像机镜头。
+  3. 提示词中必须明确加入体现全局风格（${style.name}）的视觉和摄影描述，保证最终画面的风格绝对符合要求。
+  4. 必须包含以下强约束：
+     "NO text, NO subtitles, NO watermarks. Layout: ${projectSettings.frameLayout === 'double' ? 'split-screen double frame' : 'single frame'}. Character features and clothing state MUST perfectly match the reference and remain strictly consistent. Do not change clothing state unless explicitly specified. The image MUST strictly follow the requested visual style: ${style.name}."
+  5. 请直接输出纯文本的提示词，不要包含任何前缀、解释性文字、或引号包裹。不要输出JSON格式。
 `;
 
   try {
@@ -531,13 +539,14 @@ export const generateThreeViewImage = async (type: 'character' | 'environment', 
      throw new ApiError("请配置图片生成模型的 API Key 以生成三视图。");
   }
 
-  const prompt = `(Style: ${styleName}) multiple views, orthographic projection, front side back view of ${type} ${name}, concept art, reference sheet, masterpiece`;
+  const prompt = `(Style: ${styleName}) multiple views, orthographic projection, front side back view of ${type} ${name}, concept art, reference sheet, masterpiece, wide angle`;
   
   try {
         // 大多数主流生图API（豆包、智谱、Moonshot等）都兼容 OpenAI 的 /images/generations 端点格式
           const requestBody: any = {
             model: settings.imageGenerationModelName || "ep-20260423082019-m5h7z",
-            prompt: prompt
+            prompt: prompt,
+            size: "1280x720"
           };
 
         const res = await fetch(`${settings.imageGenerationBaseUrl}/images/generations`, {
@@ -563,24 +572,45 @@ export const generateThreeViewImage = async (type: 'character' | 'environment', 
   }
 };
 
-export const generateImageForScene = async (scene: Scene, settings: AppSettings, projectSettings: { aspectRatio: string; frameLayout: string }): Promise<string> => {
+export const generateImageForScene = async (
+  scene: Scene, 
+  settings: AppSettings, 
+  projectSettings: { aspectRatio: string; frameLayout: string },
+  characterAssets?: CharacterAsset[],
+  previousScene?: Scene
+): Promise<string> => {
   if (!settings.imageGenerationApiKey) {
     throw new ApiError("请先在设置中配置图片生成大模型的 API Key。");
   }
 
+  // Extract reference images from character assets
+  const sceneCharacters = characterAssets?.filter(c => scene.characters.includes(c.name)) || [];
+  const referenceImages = sceneCharacters.map(c => c.threeViewUrl).filter(url => url && url.startsWith('http'));
+  
+  // Add previous scene's generated image as a reference if continuous
+  if (previousScene && previousScene.imageUrl && scene.isContinuous) {
+    referenceImages.push(previousScene.imageUrl);
+  }
+  
+  const imageRefsPrompt = referenceImages.length > 0 ? ` [Reference Images: ${referenceImages.join(', ')}] ` : '';
+
   // Inject negative constraints and specific layout requirements to image prompt
-  const safetyPrompt = `NO text, NO subtitles, NO watermarks, NO typography. Frame layout: ${projectSettings.frameLayout === 'double' ? 'split-screen double frame' : 'single frame'}. Character features and clothing state MUST perfectly match the reference and remain strictly consistent.`;
-  const finalPrompt = `${scene.optimizedPrompt}, ${safetyPrompt}`;
+  const continuityPrompt = (previousScene && scene.isContinuous) 
+    ? 'CRITICAL: This is a continuous shot from the previous scene. Maintain absolute visual consistency with the previous frame, including characters, clothing, background, and lighting. ' 
+    : '';
+  const safetyPrompt = `NO text, NO subtitles, NO watermarks, NO typography. Frame layout: ${projectSettings.frameLayout === 'double' ? 'split-screen double frame' : 'single frame'}. ${continuityPrompt}Character features and clothing state MUST perfectly match the reference and remain strictly consistent.`;
+  const finalPrompt = `${scene.optimizedPrompt}${imageRefsPrompt}, ${safetyPrompt}`;
 
   // Map Aspect Ratio for Doubao (they support standard string sizes)
     let mappedSize = "1024x1024";
-    if (projectSettings.aspectRatio === '16:9') mappedSize = "1920x1080";
-    else if (projectSettings.aspectRatio === '9:16') mappedSize = "1080x1920";
+    if (projectSettings.aspectRatio === '16:9') mappedSize = "1280x720";
+    else if (projectSettings.aspectRatio === '9:16') mappedSize = "720x1280";
 
     try {
         const requestBody: any = {
           model: settings.imageGenerationModelName || "ep-20260423082019-m5h7z",
-          prompt: finalPrompt
+          prompt: finalPrompt,
+          size: mappedSize
         };
 
         const res = await fetch(`${settings.imageGenerationBaseUrl}/images/generations`, {
@@ -606,10 +636,28 @@ export const generateImageForScene = async (scene: Scene, settings: AppSettings,
   }
 };
 
-// ==============
-// Video Generation
-// ==============
-export const generateVideoForScene = async (scene: Scene, settings: AppSettings, previousFrameUrl: string, projectSettings: { aspectRatio: string; frameLayout: string }): Promise<{ videoUrl: string, lastFrameUrl: string }> => {
+export const cancelVideoTask = async (taskId: string, settings: AppSettings): Promise<void> => {
+  if (settings.videoGenerationProvider !== 'doubao' || !settings.videoGenerationApiKey) return;
+
+  try {
+    await fetch(`${settings.videoGenerationBaseUrl}/contents/generations/tasks/${taskId}`, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${settings.videoGenerationApiKey}`
+      }
+    });
+  } catch (error) {
+    console.error("Failed to cancel video task:", error);
+  }
+};
+export const generateVideoForScene = async (
+  scene: Scene, 
+  settings: AppSettings, 
+  previousFrameUrl: string, 
+  projectSettings: { aspectRatio: string; frameLayout: string },
+  updateTaskId?: (taskId: string) => void
+): Promise<{ videoUrl: string, lastFrameUrl: string }> => {
   if (!settings.videoGenerationApiKey) {
     throw new ApiError("请配置视频生成模型的 API Key。");
   }
@@ -638,16 +686,18 @@ export const generateVideoForScene = async (scene: Scene, settings: AppSettings,
           }
 
           const res = await fetch(`${settings.videoGenerationBaseUrl}/contents/generations/tasks`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${settings.videoGenerationApiKey}`
-            },
-            body: JSON.stringify({
-              model: settings.videoGenerationModelName || "doubao-seedance-1-5-pro-251215",
-              content: contentArray
-            })
-          });
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${settings.videoGenerationApiKey}`
+              },
+              body: JSON.stringify({
+                model: settings.videoGenerationModelName || "doubao-seedance-2-0-260128",
+                content: contentArray,
+                duration: 5,
+                ratio: projectSettings.aspectRatio === '16:9' ? '16:9' : (projectSettings.aspectRatio === '9:16' ? '9:16' : '1:1')
+              })
+            });
 
         if (!res.ok) {
           const errData = await res.json().catch(() => ({}));
@@ -659,8 +709,12 @@ export const generateVideoForScene = async (scene: Scene, settings: AppSettings,
           const taskId = data.id || data.task_id || data.data?.id;
 
           if (!taskId) {
-            throw new ApiError(`任务创建成功，但未能获取到 taskId。原始返回: ${JSON.stringify(data)}`);
-          }
+              throw new ApiError(`任务创建成功，但未能获取到 taskId。原始返回: ${JSON.stringify(data)}`);
+            }
+
+            if (updateTaskId) {
+              updateTaskId(taskId);
+            }
 
           // Polling loop
           let attempts = 0;
@@ -696,6 +750,8 @@ export const generateVideoForScene = async (scene: Scene, settings: AppSettings,
               };
             } else if (status === 'failed' || status === 'FAILED') {
               throw new ApiError(`视频生成任务失败: ${getResult.error?.message || getResult.message || '未知错误'}`);
+            } else if (status === 'canceled' || status === 'CANCELED') {
+              throw new ApiError(`视频生成任务已被取消。`);
             }
             
             attempts++;
