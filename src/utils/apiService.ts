@@ -618,32 +618,34 @@ export const generateVideoForScene = async (scene: Scene, settings: AppSettings,
 
   try {
       if (settings.videoGenerationProvider === 'doubao') {
-        const res = await fetch(`${settings.videoGenerationBaseUrl}/contents/generations/tasks`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${settings.videoGenerationApiKey}`
-          },
-          body: JSON.stringify({
-            model: settings.videoGenerationModelName || "ep-20260423082019-m5h7z",
-            content: [
-              {
-                type: "text",
-                text: finalPrompt
-              },
-              {
-                type: "image_url",
-                image_url: {
-                  url: scene.imageUrl
-                }
+          // Construct content array based on presence of imageUrl
+          const contentArray: any[] = [
+            {
+              type: "text",
+              text: finalPrompt
+            }
+          ];
+
+          if (scene.imageUrl) {
+            contentArray.push({
+              type: "image_url",
+              image_url: {
+                url: scene.imageUrl
               }
-            ],
-            ratio: projectSettings.aspectRatio,
-            duration: 5,
-            watermark: true,
-            camerafixed: false
-          })
-        });
+            });
+          }
+
+          const res = await fetch(`${settings.videoGenerationBaseUrl}/contents/generations/tasks`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${settings.videoGenerationApiKey}`
+            },
+            body: JSON.stringify({
+              model: settings.videoGenerationModelName || "doubao-seedance-1-5-pro-251215",
+              content: contentArray
+            })
+          });
 
         if (!res.ok) {
           const errData = await res.json().catch(() => ({}));
