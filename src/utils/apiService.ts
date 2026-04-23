@@ -530,17 +530,16 @@ export const generateThreeViewImage = async (type: 'character' | 'environment', 
   try {
       // 大多数主流生图API（豆包、智谱、Moonshot等）都兼容 OpenAI 的 /images/generations 端点格式
       const res = await fetch(`${settings.imageGenerationBaseUrl}/images/generations`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${settings.imageGenerationApiKey}`
-        },
-        body: JSON.stringify({
-          model: settings.imageGenerationModelName || "dall-e-3",
-          prompt: prompt,
-          n: 1
-        })
-      });
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${settings.imageGenerationApiKey}`
+          },
+          body: JSON.stringify({
+            model: settings.imageGenerationModelName || "dall-e-3",
+            prompt: prompt
+          })
+        });
 
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
@@ -574,17 +573,16 @@ export const generateImageForScene = async (scene: Scene, settings: AppSettings,
 
   try {
       const res = await fetch(`${settings.imageGenerationBaseUrl}/images/generations`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${settings.imageGenerationApiKey}`
-        },
-        body: JSON.stringify({
-          model: settings.imageGenerationModelName || "dall-e-3",
-          prompt: finalPrompt,
-          n: 1
-        })
-      });
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${settings.imageGenerationApiKey}`
+          },
+          body: JSON.stringify({
+            model: settings.imageGenerationModelName || "dall-e-3",
+            prompt: finalPrompt
+          })
+        });
 
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
@@ -620,7 +618,7 @@ export const generateVideoForScene = async (scene: Scene, settings: AppSettings,
             'Authorization': `Bearer ${settings.videoGenerationApiKey}`
           },
           body: JSON.stringify({
-            model: settings.videoGenerationModelName || "doubao-seedance-1-5-pro-251215",
+            model: settings.videoGenerationModelName || "ep-20260423082019-m5h7z",
             content: [
               {
                 type: "text",
