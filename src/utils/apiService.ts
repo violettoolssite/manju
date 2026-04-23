@@ -546,11 +546,13 @@ export const generateThreeViewImage = async (
      throw new ApiError("请配置图片生成模型的 API Key 以生成三视图。");
   }
 
+  const photorealisticModifiers = "photorealistic, real life photography, live-action, 8k resolution, highly detailed photography, NO anime, NO cartoon, NO illustration, NO 3d render, NO drawing, MUST be photorealistic live-action real human/environment";
+
   let prompt = '';
   if (type === 'character') {
-    prompt = `(Style: ${styleName}) Character design reference sheet of ${name}. Character details: ${description}. Three distinct full-body views side-by-side: left profile view, front view, and back view. Standing straight, clean plain grey background, orthographic projection, concept art, masterpiece, highly detailed.`;
+    prompt = `(Style: ${styleName}) Real-life photography character reference sheet of ${name}. Character details: ${description}. Three distinct full-body views side-by-side: left profile view, front view, and back view. Standing straight, clean plain grey background, orthographic projection. ${photorealisticModifiers}`;
   } else {
-    prompt = `(Style: ${styleName}) multiple views, orthographic projection, concept art, reference sheet of ${type} ${name}. Details: ${description}. Masterpiece, wide angle.`;
+    prompt = `(Style: ${styleName}) Real-life photography multiple views, orthographic projection, reference sheet of ${type} ${name}. Details: ${description}. Wide angle. ${photorealisticModifiers}`;
   }
   
   try {
@@ -610,7 +612,7 @@ export const generateImageForScene = async (
   const continuityPrompt = (previousScene && scene.isContinuous) 
     ? 'CRITICAL: This is a continuous shot from the previous scene. Maintain absolute visual consistency with the previous frame, including characters, clothing, background, and lighting. ' 
     : '';
-  const safetyPrompt = `NO text, NO subtitles, NO watermarks, NO typography. Frame layout: ${projectSettings.frameLayout === 'double' ? 'split-screen double frame' : 'single frame'}. ${continuityPrompt}Character features and clothing state MUST perfectly match the reference and remain strictly consistent.`;
+  const safetyPrompt = `NO text, NO subtitles, NO watermarks, NO typography. Frame layout: ${projectSettings.frameLayout === 'double' ? 'split-screen double frame' : 'single frame'}. ${continuityPrompt}Character features and clothing state MUST perfectly match the reference and remain strictly consistent. MUST be photorealistic, live-action, real life photography, NO anime, NO cartoon, NO illustration.`;
   const finalPrompt = `${scene.optimizedPrompt}${imageRefsPrompt}, ${safetyPrompt}`;
 
   // Map Aspect Ratio for Doubao (they support standard string sizes)
