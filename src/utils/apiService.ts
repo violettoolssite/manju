@@ -550,9 +550,10 @@ export const generateThreeViewImage = async (type: 'character' | 'environment', 
           });
 
       if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new ApiError(`三视图生成失败: ${errData.error?.message || errData.message || res.statusText}`);
-      }
+          const errData = await res.json().catch(() => ({}));
+          const errMsg = errData.error?.message || errData.message || res.statusText;
+          throw new ApiError(`三视图生成失败: [${res.status}] ${errMsg}\n模型: ${requestBody.model}\n如果出现 400 错误，请确保您填写的 Model Name (如 ep-xxx) 支持图片生成。`);
+        }
 
       const data = await res.json();
       return data.data[0].url;
@@ -592,9 +593,10 @@ export const generateImageForScene = async (scene: Scene, settings: AppSettings,
           });
 
       if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new ApiError(`分镜图生成失败: ${errData.error?.message || errData.message || res.statusText}`);
-      }
+          const errData = await res.json().catch(() => ({}));
+          const errMsg = errData.error?.message || errData.message || res.statusText;
+          throw new ApiError(`分镜图生成失败: [${res.status}] ${errMsg}\n模型: ${requestBody.model}\n如果出现 400 错误，请确保您填写的 Model Name (如 ep-xxx) 支持图片生成。`);
+        }
 
       const data = await res.json();
       return data.data[0].url;
@@ -649,7 +651,8 @@ export const generateVideoForScene = async (scene: Scene, settings: AppSettings,
 
         if (!res.ok) {
           const errData = await res.json().catch(() => ({}));
-          throw new ApiError(`火山引擎视频生成请求失败: ${res.status} ${errData.error?.message || errData.message || res.statusText}`);
+          const errMsg = errData.error?.message || errData.message || res.statusText;
+          throw new ApiError(`火山引擎视频生成请求失败: ${res.status} ${errMsg}\n请求地址: ${settings.videoGenerationBaseUrl}/contents/generations/tasks\n请确认 API Base URL 和模型接入点(Model Name)是否正确。`);
         }
 
         const data = await res.json();
@@ -675,7 +678,7 @@ export const generateVideoForScene = async (scene: Scene, settings: AppSettings,
 
             if (!getRes.ok) {
               const errData = await getRes.json().catch(() => ({}));
-              throw new ApiError(`查询视频状态失败: ${errData.error?.message || getRes.statusText}`);
+              throw new ApiError(`查询视频状态失败: ${getRes.status} ${errData.error?.message || errData.message || getRes.statusText}`);
             }
 
             const getResult = await getRes.json();
