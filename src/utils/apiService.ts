@@ -530,16 +530,17 @@ export const generateThreeViewImage = async (type: 'character' | 'environment', 
   try {
       // 大多数主流生图API（豆包、智谱、Moonshot等）都兼容 OpenAI 的 /images/generations 端点格式
       const res = await fetch(`${settings.imageGenerationBaseUrl}/images/generations`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${settings.imageGenerationApiKey}`
-          },
-          body: JSON.stringify({
-            model: settings.imageGenerationModelName || "dall-e-3",
-            prompt: prompt
-          })
-        });
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${settings.imageGenerationApiKey}`
+            },
+            body: JSON.stringify({
+              model: settings.imageGenerationModelName || "doubao-seedream-5-0-260128",
+              prompt: prompt,
+              size: "1024x1024"
+            })
+          });
 
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
@@ -563,26 +564,24 @@ export const generateImageForScene = async (scene: Scene, settings: AppSettings,
   const safetyPrompt = `NO text, NO subtitles, NO watermarks, NO typography. Frame layout: ${projectSettings.frameLayout === 'double' ? 'split-screen double frame' : 'single frame'}. Character features and clothing state MUST perfectly match the reference and remain strictly consistent.`;
   const finalPrompt = `${scene.optimizedPrompt}, ${safetyPrompt}`;
 
-  // Map Aspect Ratio for DALL-E 3 (or standard resolutions for others)
-  let size = "1024x1024";
-  if (projectSettings.aspectRatio === '16:9') size = "1792x1024";
-  else if (projectSettings.aspectRatio === '9:16') size = "1024x1792";
-  else if (projectSettings.aspectRatio === '21:9') size = "1792x1024"; // approximate
-  else if (projectSettings.aspectRatio === '4:3') size = "1024x1024"; // approximate
-  else if (projectSettings.aspectRatio === '3:4') size = "1024x1024"; // approximate
+  // Map Aspect Ratio for Doubao (they support standard string sizes)
+    let mappedSize = "1024x1024";
+    if (projectSettings.aspectRatio === '16:9') mappedSize = "1920x1080";
+    else if (projectSettings.aspectRatio === '9:16') mappedSize = "1080x1920";
 
-  try {
-      const res = await fetch(`${settings.imageGenerationBaseUrl}/images/generations`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${settings.imageGenerationApiKey}`
-          },
-          body: JSON.stringify({
-            model: settings.imageGenerationModelName || "dall-e-3",
-            prompt: finalPrompt
-          })
-        });
+    try {
+        const res = await fetch(`${settings.imageGenerationBaseUrl}/images/generations`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${settings.imageGenerationApiKey}`
+            },
+            body: JSON.stringify({
+              model: settings.imageGenerationModelName || "doubao-seedream-5-0-260128",
+              prompt: finalPrompt,
+              size: mappedSize
+            })
+          });
 
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
