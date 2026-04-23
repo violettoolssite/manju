@@ -6,7 +6,7 @@ export const MOCK_STYLES: StyleOption[] = [
     id: 'modern_urban',
     name: '现代都市风格 (Modern Urban)',
     description: '现代城市背景，高楼林立，霓虹灯光或冷色调街道，写实风格，带有强烈的当代生活气息和都市感。',
-    thumbnail: 'https://coresg-normal.trae.ai/api/ide/v1/text_to_image?prompt=modern%20urban%20city%20street%20neon%20lights%20realistic%20photography&image_size=landscape_16_9',
+    thumbnail: 'https://coresg-normal.trae.ai/api/ide/v1/text_to_image?prompt=cinematic%20shot%20modern%20urban%20city%20street%20real%20life%20photography%208k&image_size=landscape_16_9',
   },
   {
     id: 'cinematic',
