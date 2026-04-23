@@ -534,12 +534,24 @@ export const regeneratePromptForScene = async (
 // For safety, we'll try to use standard OpenAI DALL-E 3 if the text provider is OpenAI, otherwise fallback to the built-in demo URL generator but wrapped in a try/catch.
 // However, the prompt specifically said "All data should not be mocked, if there is an error, optimize to a friendly error prompt".
 
-export const generateThreeViewImage = async (type: 'character' | 'environment', name: string, styleName: string, settings: AppSettings, projectSettings: { aspectRatio: string; frameLayout: string }): Promise<string> => {
+export const generateThreeViewImage = async (
+  type: 'character' | 'environment', 
+  name: string, 
+  description: string, 
+  styleName: string, 
+  settings: AppSettings, 
+  projectSettings: { aspectRatio: string; frameLayout: string }
+): Promise<string> => {
   if (!settings.imageGenerationApiKey) {
      throw new ApiError("请配置图片生成模型的 API Key 以生成三视图。");
   }
 
-  const prompt = `(Style: ${styleName}) multiple views, orthographic projection, front side back view of ${type} ${name}, concept art, reference sheet, masterpiece, wide angle`;
+  let prompt = '';
+  if (type === 'character') {
+    prompt = `(Style: ${styleName}) Character design reference sheet of ${name}. Character details: ${description}. Three distinct full-body views side-by-side: left profile view, front view, and back view. Standing straight, clean plain grey background, orthographic projection, concept art, masterpiece, highly detailed.`;
+  } else {
+    prompt = `(Style: ${styleName}) multiple views, orthographic projection, concept art, reference sheet of ${type} ${name}. Details: ${description}. Masterpiece, wide angle.`;
+  }
   
   try {
         // 大多数主流生图API（豆包、智谱、Moonshot等）都兼容 OpenAI 的 /images/generations 端点格式

@@ -16,7 +16,7 @@ const PROVIDER_CONFIGS = {
     wenxin: { url: 'https://aip.baidubce.com/rpc/2.0/ai_custom/v1/wenxinworkshop', model: 'ERNIE-4.0-8K' },
     qwen: { url: 'https://dashscope.aliyuncs.com/api/v1', model: 'qwen-max' },
     minimax: { url: 'https://api.minimax.chat/v1', model: 'abab6.5-chat' },
-    moonshot: { url: 'https://api.moonshot.cn/v1', model: 'moonshot-v1-8k' },
+    moonshot: { url: 'https://api.moonshot.cn/v1', model: 'moonshot-v1-8k' }, // 注意: 浏览器直连会有 CORS 问题
     doubao: { url: 'https://ark.cn-beijing.volces.com/api/v3', model: 'ep-xxx-xxx' }, // 豆包需要用户自己填 endpoint id
     custom: { url: '', model: '' }
   },

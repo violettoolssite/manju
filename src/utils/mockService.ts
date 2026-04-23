@@ -16,6 +16,12 @@ export const MOCK_STYLES: StyleOption[] = [
     thumbnail: 'https://coresg-normal.trae.ai/api/ide/v1/text_to_image?prompt=studio%20ghibli%20anime%20beautiful%20landscape%20sky&image_size=landscape_16_9',
   },
   {
+    id: 'modern_urban',
+    name: '现代都市风格 (Modern Urban)',
+    description: '现代城市背景，高楼林立，霓虹灯光或冷色调街道，写实风格，带有强烈的当代生活气息和都市感。',
+    thumbnail: 'https://coresg-normal.trae.ai/api/ide/v1/text_to_image?prompt=modern%20urban%20city%20street%20neon%20lights%20realistic%20photography&image_size=landscape_16_9',
+  },
+  {
     id: 'cinematic',
     name: '写实电影 (Cinematic)',
     description: '好莱坞大片质感，8K超高清，真实物理光影，浅景深虚化背景，色彩偏冷峻严肃的叙事风格。',

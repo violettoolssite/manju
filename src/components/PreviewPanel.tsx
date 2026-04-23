@@ -24,7 +24,7 @@ const WorkflowToolbar: React.FC = () => {
     try {
       for (const char of projectCharacters) {
         if (!char.threeViewUrl) {
-          const url = await generateThreeViewImage('character', char.name, selectedStyle.name, settings, {
+          const url = await generateThreeViewImage('character', char.name, char.description, selectedStyle.name, settings, {
             aspectRatio: activeProject.aspectRatio,
             frameLayout: activeProject.frameLayout
           });
@@ -33,7 +33,7 @@ const WorkflowToolbar: React.FC = () => {
       }
       for (const env of projectEnvironments) {
         if (!env.threeViewUrl) {
-          const url = await generateThreeViewImage('environment', env.name, selectedStyle.name, settings, {
+          const url = await generateThreeViewImage('environment', env.name, env.description, selectedStyle.name, settings, {
             aspectRatio: activeProject.aspectRatio,
             frameLayout: activeProject.frameLayout
           });
@@ -49,53 +49,11 @@ const WorkflowToolbar: React.FC = () => {
   };
 
   const handleGenerateSceneImages = async () => {
-    if (!activeProject) return;
-    setIsProcessing(true);
-    try {
-      for (let i = 0; i < scenes.length; i++) {
-        const scene = scenes[i];
-        if (!scene.imageUrl) {
-          updateScene(scene.id, { status: 'image_generating' });
-          const prevScene = i > 0 ? scenes[i - 1] : undefined;
-          const url = await generateImageForScene(scene, settings, {
-            aspectRatio: activeProject.aspectRatio,
-            frameLayout: activeProject.frameLayout
-          }, projectCharacters, prevScene);
-          updateScene(scene.id, { imageUrl: url, status: 'awaiting_confirmation' });
-        }
-      }
-      setWorkflowStep(3);
-    } catch (error: any) {
-      alert(`生成分镜图失败: ${error.message}`);
-    } finally {
-      setIsProcessing(false);
-    }
+    setWorkflowStep(3);
   };
 
   const handleGenerateVideos = async () => {
-    if (!activeProject) return;
-    setIsProcessing(true);
-    try {
-      let previousFrameUrl = '';
-      for (const scene of scenes) {
-        if (!scene.videoUrl) {
-          updateScene(scene.id, { status: 'video_generating' });
-          const { videoUrl, lastFrameUrl } = await generateVideoForScene(scene, settings, previousFrameUrl, {
-            aspectRatio: activeProject.aspectRatio,
-            frameLayout: activeProject.frameLayout
-          });
-          updateScene(scene.id, { videoUrl, lastFrameUrl, status: 'completed' });
-          previousFrameUrl = lastFrameUrl;
-        } else {
-          previousFrameUrl = scene.lastFrameUrl || '';
-        }
-      }
-      setWorkflowStep(4);
-    } catch (error: any) {
-      alert(`生成视频失败: ${error.message}`);
-    } finally {
-      setIsProcessing(false);
-    }
+    setWorkflowStep(4);
   };
 
   if (workflowStep === 0) return null;
@@ -142,8 +100,7 @@ const WorkflowToolbar: React.FC = () => {
               disabled={isProcessing}
               className="bg-purple-500 hover:bg-purple-400 text-zinc-950 px-6 py-2 rounded-xl font-bold transition-all shadow-[0_0_15px_rgba(168,85,247,0.3)] disabled:opacity-50 flex items-center gap-2"
             >
-              {isProcessing && <RefreshCcw className="animate-spin" size={16} />}
-              三视图已确认，生成分镜图
+              三视图已确认，进入分镜流程
             </button>
           )}
           {workflowStep === 3 && (
@@ -152,8 +109,7 @@ const WorkflowToolbar: React.FC = () => {
               disabled={isProcessing}
               className="bg-emerald-500 hover:bg-emerald-400 text-zinc-950 px-6 py-2 rounded-xl font-bold transition-all shadow-[0_0_15px_rgba(16,185,129,0.3)] disabled:opacity-50 flex items-center gap-2"
             >
-              {isProcessing && <RefreshCcw className="animate-spin" size={16} />}
-              分镜图已确认，生成视频
+              分镜图已确认，进入视频流程
             </button>
           )}
           {workflowStep === 4 && (
@@ -221,7 +177,7 @@ const AssetGallery: React.FC = () => {
 
       try {
         updateProjectAsset(type, id, { threeViewUrl: '' });
-        const url = await generateThreeViewImage(type, item.name, selectedStyle.name, settings, {
+        const url = await generateThreeViewImage(type, item.name, item.description, selectedStyle.name, settings, {
           aspectRatio: activeProject.aspectRatio,
           frameLayout: activeProject.frameLayout
         });
@@ -355,7 +311,7 @@ const AssetGallery: React.FC = () => {
 };
 
 export const SceneCard: React.FC<{ scene: Scene; index: number }> = ({ scene, index }) => {
-  const { updateScene, deleteScene, settings, currentProjectId, projects, projectCharacters } = useStore();
+  const { updateScene, deleteScene, settings, currentProjectId, projects, projectCharacters, workflowStep } = useStore();
   const videoRef = useRef<HTMLVideoElement>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -681,7 +637,16 @@ export const SceneCard: React.FC<{ scene: Scene; index: number }> = ({ scene, in
           </AnimatePresence>
 
           <div className="flex gap-2 mt-4">
-              {scene.status !== 'pending' && (
+              {workflowStep >= 2 && scene.status === 'pending' && (
+                <button
+                  onClick={handleRegenerateImage}
+                  className="flex-1 text-xs font-bold py-2 rounded-xl transition-all border flex items-center justify-center gap-1 bg-cyan-600 hover:bg-cyan-500 text-white border-cyan-500 shadow-[0_0_10px_rgba(6,182,212,0.3)]"
+                >
+                  <Camera size={14} />
+                  确认并生成分镜图
+                </button>
+              )}
+              {workflowStep >= 2 && scene.status !== 'pending' && (
                 <button
                   onClick={handleRegenerateImage}
                   disabled={scene.status === 'image_generating' || scene.status === 'video_generating'}
@@ -696,7 +661,16 @@ export const SceneCard: React.FC<{ scene: Scene; index: number }> = ({ scene, in
                 </button>
               )}
 
-              {(scene.status === 'completed' || scene.status === 'video_generating') && (
+              {workflowStep >= 3 && scene.status === 'awaiting_confirmation' && (
+                <button
+                  onClick={handleConfirmAndGenerateVideo}
+                  className="flex-1 text-xs font-bold py-2 rounded-xl transition-all border flex items-center justify-center gap-1 bg-purple-600 hover:bg-purple-500 text-white border-purple-500 shadow-[0_0_10px_rgba(168,85,247,0.3)]"
+                >
+                  <Play size={14} />
+                  确认并生成视频
+                </button>
+              )}
+              {workflowStep >= 3 && (scene.status === 'completed' || scene.status === 'video_generating') && (
                   <button
                     onClick={handleConfirmAndGenerateVideo}
                     disabled={scene.status === 'video_generating'}
@@ -744,13 +718,6 @@ export const SceneCard: React.FC<{ scene: Scene; index: number }> = ({ scene, in
             <motion.div key="completed" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="absolute inset-0 z-10">
               <div 
                 className="w-full h-full relative"
-                onMouseEnter={() => videoRef.current?.play()}
-                onMouseLeave={() => {
-                  if (videoRef.current) {
-                    videoRef.current.pause();
-                    videoRef.current.currentTime = 0;
-                  }
-                }}
               >
                 {scene.videoUrl ? (
                   <video 
@@ -761,31 +728,18 @@ export const SceneCard: React.FC<{ scene: Scene; index: number }> = ({ scene, in
                     muted
                     playsInline
                     poster={scene.imageUrl}
+                    controls
+                    controlsList="nodownload noplaybackrate"
                   />
                 ) : (
                   <img src={scene.imageUrl} alt={scene.sceneName} className="w-full h-full object-cover" />
                 )}
                 
-                {scene.status === 'completed' && scene.videoUrl && (
-                  <div className="absolute inset-0 bg-black/20 group-hover:bg-black/40 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100 duration-300">
-                    <button 
-                      onClick={() => {
-                        if (videoRef.current) {
-                          if (videoRef.current.paused) videoRef.current.play();
-                          else videoRef.current.pause();
-                        }
-                      }}
-                      className="w-16 h-16 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center hover:bg-white/30 hover:scale-110 transition-all text-white"
-                    >
-                      <Play size={24} className="ml-1" />
-                    </button>
-                  </div>
-                )}
-                <div className="absolute bottom-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                  <button className="p-2 rounded-lg bg-black/60 backdrop-blur-sm text-white hover:bg-black/80 transition-colors">
+                <div className="absolute bottom-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none">
+                  <button className="p-2 rounded-lg bg-black/60 backdrop-blur-sm text-white hover:bg-black/80 transition-colors pointer-events-auto">
                     <Download size={16} />
                   </button>
-                  <button className="p-2 rounded-lg bg-black/60 backdrop-blur-sm text-white hover:bg-black/80 transition-colors">
+                  <button className="p-2 rounded-lg bg-black/60 backdrop-blur-sm text-white hover:bg-black/80 transition-colors pointer-events-auto">
                     <Maximize2 size={16} />
                   </button>
                 </div>

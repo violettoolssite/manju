@@ -77,7 +77,7 @@ function App() {
         </div>
       </div>
 
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 overflow-hidden relative">
         <Workbench />
         <PreviewPanel />
         <StyleSelector />

@@ -28,6 +28,7 @@ export interface Scene {
   imageUrl?: string;
   videoUrl?: string;
   lastFrameUrl?: string;
+  currentVideoTaskId?: string; // Store task ID to allow cancellation
   status: 'pending' | 'image_generating' | 'awaiting_confirmation' | 'video_generating' | 'completed';
 }
 
