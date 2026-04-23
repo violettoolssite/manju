@@ -538,8 +538,7 @@ export const generateThreeViewImage = async (type: 'character' | 'environment', 
         body: JSON.stringify({
           model: settings.imageGenerationModelName || "dall-e-3",
           prompt: prompt,
-          n: 1,
-          size: "1024x1024"
+          n: 1
         })
       });
 
@@ -583,8 +582,7 @@ export const generateImageForScene = async (scene: Scene, settings: AppSettings,
         body: JSON.stringify({
           model: settings.imageGenerationModelName || "dall-e-3",
           prompt: finalPrompt,
-          n: 1,
-          size: size
+          n: 1
         })
       });
 
