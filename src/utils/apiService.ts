@@ -420,9 +420,15 @@ ${text}
     });
 
     return { scenes, characters: currentCharacters, environments: currentEnvironments };
-  } catch (error) {
+  } catch (error: any) {
     if (error instanceof ApiError) throw error;
     if (error instanceof SyntaxError) throw new ApiError("模型返回的数据格式无法解析，请重试。");
+    
+    // Improve CORS error message
+    if (error.message?.includes('Failed to fetch') || error.message?.includes('CORS')) {
+      throw new ApiError(`跨域请求被拦截 (CORS Error): 您所选择的模型服务商 (如 Moonshot) 不支持从浏览器直接调用。请更换其他模型商，或使用代理/后端服务转发请求。`);
+    }
+    
     throw new ApiError(`网络或未知错误: ${error instanceof Error ? error.message : String(error)}`);
   }
 };
@@ -528,17 +534,11 @@ export const generateThreeViewImage = async (type: 'character' | 'environment', 
   const prompt = `(Style: ${styleName}) multiple views, orthographic projection, front side back view of ${type} ${name}, concept art, reference sheet, masterpiece`;
   
   try {
-      // 大多数主流生图API（豆包、智谱、Moonshot等）都兼容 OpenAI 的 /images/generations 端点格式
-        const requestBody: any = {
-          model: settings.imageGenerationModelName || "doubao-seedream-5-0-260128",
-          prompt: prompt,
-          size: "1024x1024"
-        };
-        
-        // 豆包 API 不支持 size 参数的某些特殊组合或某些情况下会报错
-        if (settings.imageGenerationProvider === 'doubao') {
-          delete requestBody.size;
-        }
+        // 大多数主流生图API（豆包、智谱、Moonshot等）都兼容 OpenAI 的 /images/generations 端点格式
+          const requestBody: any = {
+            model: settings.imageGenerationModelName || "ep-20260423082019-m5h7z",
+            prompt: prompt
+          };
 
         const res = await fetch(`${settings.imageGenerationBaseUrl}/images/generations`, {
             method: 'POST',
@@ -578,14 +578,9 @@ export const generateImageForScene = async (scene: Scene, settings: AppSettings,
 
     try {
         const requestBody: any = {
-          model: settings.imageGenerationModelName || "doubao-seedream-5-0-260128",
-          prompt: finalPrompt,
-          size: mappedSize
+          model: settings.imageGenerationModelName || "ep-20260423082019-m5h7z",
+          prompt: finalPrompt
         };
-
-        if (settings.imageGenerationProvider === 'doubao') {
-          delete requestBody.size;
-        }
 
         const res = await fetch(`${settings.imageGenerationBaseUrl}/images/generations`, {
             method: 'POST',
